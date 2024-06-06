@@ -10,16 +10,6 @@ services:
     volumes:
       - ./streaming-server:/app
 
-  web-server:
-    build: ./web-server
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./web-server:/app
-    depends_on:
-      - redis
-      - mongo
-
   redis:
     image: "redis:alpine"
     ports:
