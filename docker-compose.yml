@@ -1,13 +1,25 @@
 version: '3.8'
 
 services:
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
   streaming-server:
     build: ./streaming-server
     ports:
       - "1935:1935"
       - "8000:8000"
       - "8443:8443"
-    volumes:
-      - ./streaming-server:/app
+    depends_on:
+      - mongo
+      - redis
 
- 
+volumes:
+  mongo-data:
