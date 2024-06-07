@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-
 const NodeMediaServer = require('node-media-server');
 const config = require('./config');
 
@@ -16,7 +15,20 @@ const checkFile = (filePath) => {
 
 // Check critical paths
 checkFile(config.http.mediaroot);
-// Add checks for other paths if necessary
+checkFile(config.trans.ffmpeg);
 
 const nms = new NodeMediaServer(config);
+
+nms.on('prePublish', (id, StreamPath, args) => {
+  console.log(`prePublish: Stream ${StreamPath} is about to start (id: ${id}, args: ${JSON.stringify(args)})`);
+});
+
+nms.on('postPublish', (id, StreamPath, args) => {
+  console.log(`postPublish: Stream ${StreamPath} started (id: ${id}, args: ${JSON.stringify(args)})`);
+});
+
+nms.on('donePublish', (id, StreamPath, args) => {
+  console.log(`donePublish: Stream ${StreamPath} ended (id: ${id}, args: ${JSON.stringify(args)})`);
+});
+
 nms.run();
