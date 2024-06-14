@@ -1,25 +1,26 @@
 version: '3.8'
 
 services:
-  mongo:
-    image: mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-  redis:
-    image: redis
-    ports:
-      - "6379:6379"
   streaming-server:
     build: ./streaming-server
+    volumes:
+      - ./streaming-server:/app
     ports:
       - "1935:1935"
       - "8000:8000"
       - "8443:8443"
+      - "8080:8080"
+    command: ["npm", "start"]
+  react-webcam-stream:
+    build:
+      context: ./react-webcam-stream
+      target: development
+    volumes:
+      - ./react-webcam-stream:/app
+    ports:
+      - "3000:3000"
     depends_on:
-      - mongo
-      - redis
-
-volumes:
-  mongo-data:
+      - streaming-server
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: ["npm", "start"]

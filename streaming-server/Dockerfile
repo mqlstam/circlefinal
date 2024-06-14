@@ -10,9 +10,11 @@ COPY package*.json ./
 # Install npm dependencies
 RUN npm install
 
+# Install nodemon globally
+RUN npm install -g nodemon
+
 # Add this line in your Dockerfile
 RUN mkdir -p /app/media
-
 
 # Install ffmpeg and clean up apt cache to reduce image size
 RUN apt-get update && \
@@ -24,14 +26,14 @@ RUN apt-get update && \
 # Copy the rest of the application code
 COPY . .
 
-
 # Ensure any required subdirectories are created
 RUN mkdir -p /app/path/to/required/files
 
-# Expose ports for the streaming server
+# Expose ports for Node Media Server
 EXPOSE 1935
 EXPOSE 8000
 EXPOSE 8443
+EXPOSE 8080
 
-# Command to run the application
-CMD ["node", "server.js"]
+# Command to run the application with nodemon to monitor both server.js and extraserver.js
+CMD ["npm", "start"]
