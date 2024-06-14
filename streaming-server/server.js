@@ -1,50 +1,33 @@
-const fs = require('fs');
-const path = require('path');
+const express = require('express');
 const { spawn } = require('child_process');
-const WebSocket = require('ws');
 const NodeMediaServer = require('node-media-server');
 const config = require('./config');
 
-const app = require('express')();
-const port = 8081; // Change this port to avoid conflict with Node Media Server
+const app = express();
+const port = 8000; // Port for the Node.js server
 
 const nms = new NodeMediaServer(config);
-nms.run();
+nms.run(); // Start Node Media Server
 
-// WebSocket server for receiving webcam stream
-const wss = new WebSocket.Server({ port: 8080 });
+app.post('/stream', (req, res) => {
+  const ffmpegProcess = spawn('ffmpeg', [
+    '-re', // Enable real-time mode
+    '-f', 'h264', // Input format (assuming H.264)
+    '-i', 'pipe:0', // Input from stdin
+    '-c:v', 'copy', // Copy video stream without re-encoding
+    '-f', 'flv', // Output format
+    'rtmp://localhost/live' // Output to RTMP server
+  ]);
 
-
-wss.on('connection', (ws) => {
-  console.log('New client connected');
-  let ffmpegProcess;
-
-  ws.on('message', (data) => {
-    if (!ffmpegProcess) {
-      ffmpegProcess = spawn('ffmpeg', [
-        '-i', 'pipe:0', // Input from stdin
-        '-c:v', 'copy', // Copy video stream without re-encoding
-        '-f', 'flv', 'rtmp://localhost/live/stream' // Output to RTMP server
-      ]);
-
-      ffmpegProcess.stdin.on('error', (e) => {
-        console.log('FFmpeg stdin error:', e);
-      });
-
-      ffmpegProcess.stderr.on('data', (data) => {
-        console.log('FFmpeg stderr:', data.toString());
-      });
-    }
-
+  req.on('data', (data) => {
     ffmpegProcess.stdin.write(data);
   });
 
-  ws.on('close', () => {
-    if (ffmpegProcess) {
-      ffmpegProcess.stdin.end();
-      ffmpegProcess.kill('SIGINT');
-    }
+  req.on('end', () => {
+    ffmpegProcess.stdin.end();
   });
+
+  res.sendStatus(200);
 });
 
 app.listen(port, () => {
