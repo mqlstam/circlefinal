@@ -1,83 +1,51 @@
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
+const WebSocket = require('ws');
 const NodeMediaServer = require('node-media-server');
 const config = require('./config');
-const ffmpeg = require('fluent-ffmpeg');
-const WebSocket = require('ws');
-// --- Helper Function to Check File Accessibility ---
-const checkFile = (filePath) => {
-  try {
-    console.log(`Checking file: ${filePath}`);
-    fs.accessSync(filePath, fs.constants.R_OK);
-    console.log(`${filePath} is readable.`);
-  } catch (err) {
-    console.error(`${filePath} is not readable:`, err);
-  }
-};
 
-// --- Check Critical Paths ---
-checkFile(config.http.mediaroot);
-checkFile(config.trans.ffmpeg);
+const app = require('express')();
+const port = 8081; // Change this port to avoid conflict with Node Media Server
 
-// --- Create NodeMediaServer Instance ---
 const nms = new NodeMediaServer(config);
+nms.run();
 
-// --- Stream Management ---
-const activeStreams = new Map(); // Store active FFmpeg processes
-
-// --- WebSocket Server (Used for Receiving Webcam Stream) ---
+// WebSocket server for receiving webcam stream
 const wss = new WebSocket.Server({ port: 8080 });
 
 wss.on('connection', (ws) => {
-  console.log('New client (webcam) connected');
-  
+  console.log('New client connected');
   let ffmpegProcess;
-  let buffer = Buffer.alloc(0); // Initialize an empty buffer
-  
-  ws.on('message', (data) => {
-  const incomingBuffer = Buffer.from(data); // Convert ArrayBuffer to Buffer
-  
-  // Append the incoming buffer to the ring buffer
-  buffer = Buffer.concat([buffer, incomingBuffer]);
-  
-  // Push the buffer to FFmpeg
-  if (!ffmpegProcess) {
-  ffmpegProcess = ffmpeg()
-  .input('pipe:0')
-  .inputFormat('mpegts') // Input format for H.264
-  .output('rtmp://localhost/live') // Replace with your RTMP URL
-  .outputOptions(['-c:v copy', '-c:a copy'])
-  .on('start', () => {
-  console.log('FFmpeg RTMP stream started');
-  })
-  .on('error', (err) => {
-  console.error('FFmpeg error:', err);
-  });
-  
-  ffmpegProcess.stdin.write(buffer);
-  buffer = Buffer.alloc(0); // Clear the buffer
-  ffmpegProcess.run();
-  } else {
-  ffmpegProcess.stdin.write(incomingBuffer);
-  }
-  });
 
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
-    ws.terminate(); // Terminate the WebSocket connection on error
+  ws.on('message', (data) => {
+    if (!ffmpegProcess) {
+      ffmpegProcess = spawn('ffmpeg', [
+        '-i', 'pipe:0', // Input from stdin
+        '-c:v', 'copy', // Copy video stream without re-encoding
+        '-f', 'flv', 'rtmp://localhost/live/stream' // Output to RTMP server
+      ]);
+
+      ffmpegProcess.stdin.on('error', (e) => {
+        console.log('FFmpeg stdin error:', e);
+      });
+
+      ffmpegProcess.stderr.on('data', (data) => {
+        console.log('FFmpeg stderr:', data.toString());
+      });
+    }
+
+    ffmpegProcess.stdin.write(data);
   });
 
   ws.on('close', () => {
-    console.log('Client (webcam) disconnected');
     if (ffmpegProcess) {
-      ffmpegProcess.kill(); // Stop FFmpeg when the client disconnects
+      ffmpegProcess.stdin.end();
+      ffmpegProcess.kill('SIGINT');
     }
   });
 });
 
-
-console.log('WebSocket server started on port 8080');
-
-// --- Start NodeMediaServer ---
-nms.run();
-console.log('NodeMediaServer running...');
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
+});

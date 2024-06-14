@@ -1,6 +1,5 @@
 const config = {
   logType: 2, // Adjust logging level as needed
-
   rtmp: {
     port: 1935,
     chunk_size: 60000,
@@ -20,13 +19,11 @@ const config = {
     ],
   },
   http: {
-    port: 8000, // Match the exposed port in docker-compose.yml
+    port: 8000,
     allow_origin: '*',
-    mediaroot: '/app/media', // Path inside the container
-    enabled: true, // Enable if you want to use NodeMediaServer's HTTP server 
+    mediaroot: '/app/media',
+    enabled: true, // Enable if you want to use NodeMediaServer's HTTP server
   }
 };
-
-
 
 module.exports = config;

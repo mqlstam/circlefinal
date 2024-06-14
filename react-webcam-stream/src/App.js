@@ -1,5 +1,5 @@
 import React from 'react';
-import WebcamStream from './WebcamStream';
+import WebcamStream from './components/WebcamStream';
 
 const App = () => {
   return (
