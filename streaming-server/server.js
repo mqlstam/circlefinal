@@ -14,6 +14,7 @@ nms.run();
 // WebSocket server for receiving webcam stream
 const wss = new WebSocket.Server({ port: 8080 });
 
+
 wss.on('connection', (ws) => {
   console.log('New client connected');
   let ffmpegProcess;

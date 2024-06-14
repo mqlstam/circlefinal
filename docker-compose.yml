@@ -11,12 +11,23 @@ services:
       - "8443:8443"
       - "8080:8080"
     command: ["npm", "start"]
-  react-webcam-stream:
+  # react-webcam-stream:
+  #   build:
+  #     context: ./react-webcam-stream
+  #   volumes:
+  #     - ./react-webcam-stream:/app
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - streaming-server
+  #   environment:
+  #     - CHOKIDAR_USEPOLLING=true
+  #   command: ["npm", "start"]
+  my-webcam-app:
     build:
-      context: ./react-webcam-stream
-      target: development
+      context: ./my-webcam-app
     volumes:
-      - ./react-webcam-stream:/app
+      - ./my-webcam-app:/app
     ports:
       - "3000:3000"
     depends_on:
