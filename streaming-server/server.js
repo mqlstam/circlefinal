@@ -4,8 +4,6 @@ const NodeMediaServer = require('node-media-server');
 const config = require('./config');
 const ffmpeg = require('fluent-ffmpeg');
 const WebSocket = require('ws');
-
-
 // --- Helper Function to Check File Accessibility ---
 const checkFile = (filePath) => {
   try {
@@ -32,36 +30,36 @@ const wss = new WebSocket.Server({ port: 8080 });
 
 wss.on('connection', (ws) => {
   console.log('New client (webcam) connected');
-
+  
   let ffmpegProcess;
   let buffer = Buffer.alloc(0); // Initialize an empty buffer
-
+  
   ws.on('message', (data) => {
-    const incomingBuffer = Buffer.from(data); // Convert ArrayBuffer to Buffer
-
-    // Append the incoming buffer to the ring buffer
-    buffer = Buffer.concat([buffer, incomingBuffer]);
-
-    // Push the buffer to FFmpeg
-    if (!ffmpegProcess) {
-      ffmpegProcess = ffmpeg()
-        .input('pipe:0')
-        .inputFormat('webm')
-        .output('rtmp://localhost/live/webcam')
-        .outputOptions(['-c:v copy', '-c:a copy'])
-        .on('start', () => {
-          console.log('FFmpeg RTMP stream started');
-        })
-        .on('error', (err) => {
-          console.error('FFmpeg error:', err);
-        });
-
-      ffmpegProcess.stdin.write(buffer);
-      buffer = Buffer.alloc(0); // Clear the buffer
-      ffmpegProcess.run();
-    } else {
-      ffmpegProcess.stdin.write(incomingBuffer);
-    }
+  const incomingBuffer = Buffer.from(data); // Convert ArrayBuffer to Buffer
+  
+  // Append the incoming buffer to the ring buffer
+  buffer = Buffer.concat([buffer, incomingBuffer]);
+  
+  // Push the buffer to FFmpeg
+  if (!ffmpegProcess) {
+  ffmpegProcess = ffmpeg()
+  .input('pipe:0')
+  .inputFormat('mpegts') // Input format for H.264
+  .output('rtmp://localhost/live') // Replace with your RTMP URL
+  .outputOptions(['-c:v copy', '-c:a copy'])
+  .on('start', () => {
+  console.log('FFmpeg RTMP stream started');
+  })
+  .on('error', (err) => {
+  console.error('FFmpeg error:', err);
+  });
+  
+  ffmpegProcess.stdin.write(buffer);
+  buffer = Buffer.alloc(0); // Clear the buffer
+  ffmpegProcess.run();
+  } else {
+  ffmpegProcess.stdin.write(incomingBuffer);
+  }
   });
 
   ws.on('error', (error) => {
