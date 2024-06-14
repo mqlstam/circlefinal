@@ -23,12 +23,15 @@ app.post('/upload', (req, res) => {
 
   console.log('Spawning ffmpeg process...');
   const ffmpegProcess = spawn('ffmpeg', [
+    '-re',
+    '-f', 'webm',
     '-i', 'pipe:0',
-    '-c:v', 'copy', // Copy video codec as it is already H.264
-    '-f', 'flv',
+    '-c:v', 'libx264', // Use libx264 for H.264 encoding
+    '-preset', 'ultrafast', // Optional: Use a faster encoding preset
+    '-f', 'matroska', // Use Matroska container format
     'rtmp://localhost/live/webcam'
   ]);
-
+  
   ffmpegProcess.stdin.write(req.body);
   ffmpegProcess.stdin.end();
 

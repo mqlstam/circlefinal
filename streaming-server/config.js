@@ -8,19 +8,17 @@ const config = {
     ping: 30,
     ping_timeout: 60,
   },
-
   trans: {
-    ffmpeg: '/usr/bin/ffmpeg', // Path to FFmpeg in the Docker container
+    ffmpeg: '/usr/bin/ffmpeg',
     tasks: [
       {
         app: 'live',
         hls: false,
         dash: true,
-        dashFlags: '[f=dash:window_size=5:extra_window_size=5]',
+        dashFlags: '[f=dash:window_size=5:extra_window_size=5:format=matroska]', // Use Matroska format for DASH
       },
     ],
   },
-
   http: {
     port: 8000, // Match the exposed port in docker-compose.yml
     allow_origin: '*',
@@ -28,5 +26,7 @@ const config = {
     enabled: true, // Enable if you want to use NodeMediaServer's HTTP server 
   }
 };
+
+
 
 module.exports = config;

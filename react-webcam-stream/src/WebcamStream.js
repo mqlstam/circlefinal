@@ -16,7 +16,7 @@ const WebcamStream = () => {
 
       const recorder = new RecordRTC(stream, {
         type: 'video',
-        mimeType: 'video/webm;codecs=h264',
+        mimeType: 'video/webm;codecs=vp8', // Change this line
         video: { width: 640, height: 480 },
         timeSlice: 1000, // Record in chunks of 1 second
         ondataavailable: async (blob) => {
