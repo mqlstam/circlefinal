@@ -1,7 +1,7 @@
 const config = {
-  logType: 2, // Adjust logging level as needed
+  logType: 2,
   rtmp: {
-    port: 1935,
+    port: 1935,  // No change needed here if internal port remains the same
     chunk_size: 60000,
     gop_cache: true,
     ping: 30,
@@ -14,16 +14,16 @@ const config = {
         app: 'live',
         hls: false,
         dash: true,
-        dashFlags: '[f=dash:window_size=5:extra_window_size=5:format=matroska]', // Use Matroska format for DASH
+        dashFlags: '[f=dash:window_size=5:extra_window_size=5:format=matroska]',
       },
     ],
   },
   http: {
-    port: 8000,
+    port: 8000,  // Ensure this matches the port you have exposed in docker-compose.yml
     allow_origin: '*',
     mediaroot: '/app/media',
-    enabled: true, // Enable if you want to use NodeMediaServer's HTTP server
-  }
+    enabled: true,
+  },
 };
 
 module.exports = config;

@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import FFmpegWrapper from './FFmpegWrapper'; // Import FFmpegWrapper
+import React, { useEffect, useRef, useState } from 'react';
 
-const WebcamCapture = ({ rtmpUrl, onStreamReady }) => { // Receive props
+const WebcamCapture = ({ onStreamReady }) => {
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
 
   useEffect(() => {
     const getVideoStream = async () => {
       try {
+        console.log('Requesting webcam access...');
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setStream(stream);
         videoRef.current.srcObject = stream;
+        setStream(stream);
+        console.log('Webcam stream obtained:', stream);
       } catch (error) {
         console.error('Error accessing webcam:', error);
       }
@@ -21,16 +22,30 @@ const WebcamCapture = ({ rtmpUrl, onStreamReady }) => { // Receive props
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+        console.log('Webcam stream stopped.');
       }
     };
   }, []);
 
-  // Pass the stream to the parent component
+  const startStreaming = () => {
+    console.log('Starting webcam streaming...');
+    onStreamReady(stream);
+  };
+
+  const stopStreaming = () => {
+    console.log('Stopping webcam streaming...');
+    onStreamReady(null);
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+    setStream(null);
+  };
+
   return (
     <div>
       <video ref={videoRef} autoPlay muted />
-      {/* Pass the stream as a prop */}
-      <FFmpegWrapper stream={stream} rtmpUrl={rtmpUrl} onStreamReady={onStreamReady} /> 
+      <button onClick={startStreaming}>Start Streaming</button>
+      <button onClick={stopStreaming}>Stop Streaming</button>
     </div>
   );
 };
