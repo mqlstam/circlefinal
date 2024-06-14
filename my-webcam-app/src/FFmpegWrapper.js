@@ -48,20 +48,20 @@ const FFmpegWrapper = ({ stream, rtmpUrl, onStreamReady }) => {
             await ffmpegRef.current.writeFile('input.webm', uint8Array);
             console.log('File written to FFmpeg FS.');
 
-            if (!ffmpegProcess) {
-              ffmpegProcess = ffmpegRef.current.exec([
-                '-re',
-                '-i', 'input.webm',
-                '-c:v', 'libx264',
-                '-preset', 'veryfast',
-                '-f', 'flv',
-                rtmpUrl
-              ]);
-              ffmpegProcess.then(() => {
-                console.log('FFmpeg execution completed.');
-              }).catch((error) => {
-                console.error('Error during FFmpeg processing:', error);
-              });
+            ffmpeg.run(
+                '-re', // Enable real-time mode
+                '-i', 'input.h264', // Input from FFmpeg.wasm
+                '-c:v', 'copy', // Copy video stream without re-encoding
+                '-f', 'flv', // Output format
+                '-flvflags', 'no_duration_filesize', // Required for streaming
+                rtmpUrl // Output to RTMP server
+              )
+                .then(() => {
+                  console.log('FFmpeg stream completed');
+                })
+                .catch(error => {
+                  console.error('Error during FFmpeg streaming:', error);
+                });
               onStreamReady(rtmpUrl);
             }
           }
