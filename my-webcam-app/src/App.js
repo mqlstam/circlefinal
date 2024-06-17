@@ -1,135 +1,145 @@
-import React, { useState, useEffect, useRef } from "react";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { toBlobURL } from "@ffmpeg/util";
+import React, { useState, useEffect, useRef } from 'react';
+import Webcam from 'react-webcam';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 
 const App = () => {
-  const [stream, setStream] = useState(null);
-  const [rtmpUrl] = useState("rtmp://localhost/live"); // Your RTMP server URL
   const [ffmpeg, setFFmpeg] = useState(null);
-  const videoRef = useRef(null);
-  const processorRef = useRef(null); // Reference to MediaStreamTrackProcessor
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [isRTMPAccessible, setIsRTMPAccessible] = useState(false);
+  const webcamRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const rtmpUrl = 'rtmp://localhost:1935/live'; // Ensure this points to the correct RTMP address
+  const httpUrl = 'http://localhost:8080/status'; // HTTP interface of your RTMP server
 
   useEffect(() => {
     const loadFFmpeg = async () => {
-      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
-      const ffmpegInstance = new FFmpeg();
-      await ffmpegInstance.load({
-        coreURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.js`,
-          "text/javascript"
-        ),
-        wasmURL: await toBlobURL(
-          `${baseURL}/ffmpeg-core.wasm`,
-          "application/wasm"
-        ),
-      });
-      setFFmpeg(ffmpegInstance);
+      console.log('Loading FFmpeg...');
+      const ffmpegInstance = new FFmpeg({ log: true });
+      try {
+        await ffmpegInstance.load();
+        setFFmpeg(ffmpegInstance);
+        console.log('FFmpeg loaded.');
+      } catch (error) {
+        console.error('Error loading FFmpeg:', error);
+      }
     };
 
     loadFFmpeg();
   }, []);
 
-  const handleStreamReady = (newStream) => {
-    setStream(newStream);
+  // useEffect(() => {
+  //   const checkRTMPServer = async () => {
+  //     try {
+  //       const response = await fetch(httpUrl);
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         if (data.status === 'NodeMediaServer is running') {
+  //           setIsRTMPAccessible(true);
+  //           console.log('RTMP server is accessible.');
+  //         } else {
+  //           setIsRTMPAccessible(false);
+  //           console.error('RTMP server returned unexpected status:', data.status);
+  //         }
+  //       } else {
+  //         setIsRTMPAccessible(false);
+  //         console.error('RTMP server is not accessible. Status:', response.status);
+  //       }
+  //     } catch (error) {
+  //       setIsRTMPAccessible(false);
+  //       console.error('Error accessing RTMP server:', error);
+  //     }
+  //   };
 
+  //   checkRTMPServer();
+  // }, [httpUrl]);
+
+  const startStreaming = async () => {
+    // if (!isRTMPAccessible) {
+    //   console.error('RTMP server is not accessible. Cannot start streaming.');
+    //   return;
+    // }
+  
+    const newStream = webcamRef.current.stream;
     if (ffmpeg && newStream) {
-      const videoTracks = newStream.getVideoTracks();
-      if (videoTracks.length > 0) {
-        const videoTrack = videoTracks[0];
-
-        // Check if MediaStreamTrackProcessor is supported
-        if ("MediaStreamTrackProcessor" in window) {
-          // Create a MediaStreamTrackProcessor
-          // eslint-disable-next-line no-undef
-          const processor = new MediaStreamTrackProcessor({
-            track: videoTrack,
-          });
-          processorRef.current = processor; // Store reference
-
-          // Create a WritableStream to pipe data to FFmpeg
-          const writableStream = new WritableStream({
-            write: (chunk) => {
-              // Convert chunk to Uint8Array
-              const uint8Array = new Uint8Array(chunk);
-
-              // Write to FFmpeg.wasm input
-              ffmpeg
-                .writeFile("input.h264", uint8Array)
-                .then(() => {
-                  // Execute FFmpeg to encode and stream to RTMP
-                  ffmpeg
-                    .run(
-                      "-re", // Enable real-time mode
-                      "-i",
-                      "input.h264", // Input from FFmpeg.wasm
-                      "-c:v",
-                      "copy", // Copy video stream without re-encoding
-                      "-f",
-                      "flv", // Output format
-                      rtmpUrl // Output to RTMP server
-                    )
-                    .then(() => {
-                      console.log("FFmpeg stream completed");
-                    })
-                    .catch((error) => {
-                      console.error("Error during FFmpeg streaming:", error);
-                    });
-                })
-                .catch((error) => {
-                  console.error("Error writing to FFmpeg.wasm input:", error);
-                });
-            },
-          });
-
-          // Pipe the MediaStreamTrackProcessor to the WritableStream
-          processor.readable.pipeTo(writableStream);
-        } else {
-          console.warn(
-            "MediaStreamTrackProcessor is not supported in this browser"
-          );
-          // Provide an alternative implementation or fallback
+      console.log('Setting up MediaRecorder...');
+      const options = { mimeType: 'video/webm; codecs=vp8,opus' }; // Ensure codec compatibility or transcode later
+      const mediaRecorder = new MediaRecorder(newStream, options);
+      mediaRecorderRef.current = mediaRecorder;
+  
+      let videoChunks = [];
+  
+      mediaRecorder.ondataavailable = async (event) => {
+        if (event.data && event.data.size > 0) {
+          videoChunks.push(event.data);
+          if (videoChunks.length >= 5) { // Accumulate enough data chunks
+            const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+            videoChunks = [];
+  
+            const videoFile = new File([videoBlob], 'input.webm', { type: 'video/webm' });
+            await ffmpeg.writeFile('input.webm', await fetchFile(videoFile));
+  
+            try {
+              console.log('Transcoding and starting FFmpeg streaming...');
+              await ffmpeg.exec([
+                '-i', 'input.webm',
+                '-c:v', 'libx264', '-x264-params', 'keyint=60:min-keyint=60', // Set key frame intervals
+                '-c:a', 'aac', '-b:a', '128k', // Transcode audio to AAC
+                '-f', 'flv', rtmpUrl
+              ]);
+              console.log('FFmpeg stream completed.');
+            } catch (error) {
+              console.error('Error during FFmpeg streaming:', error);
+            }
+          }
         }
-      } else {
-        console.error("No video tracks found");
-      }
+      };
+  
+      mediaRecorder.onstart = () => console.log('MediaRecorder started');
+      mediaRecorder.onstop = () => console.log('MediaRecorder stopped');
+      mediaRecorder.onerror = (event) => console.error('MediaRecorder error:', event.error);
+  
+      mediaRecorder.start(1000); // Capture in chunks of 1 second
+      setIsStreaming(true);
+    } else {
+      console.error('FFmpeg or stream is not initialized.');
     }
+  };
+  
+
+  const stopStreaming = () => {
+    console.log('Stopping streaming...');
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+      console.log('MediaRecorder stopped.');
+    }
+
+    setIsStreaming(false);
+    console.log('Streaming stopped.');
   };
 
   useEffect(() => {
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-        if (processorRef.current) {
-          processorRef.current.terminate(); // Terminate the processor
-        }
+      console.log('Cleaning up resources...');
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+        console.log('MediaRecorder stopped.');
       }
     };
-  }, [stream]);
+  }, []);
 
   return (
     <div>
       <h1>Webcam to RTMP Stream</h1>
-      <video ref={videoRef} autoPlay muted />
-      <button
-        onClick={() =>
-          navigator.mediaDevices
-            .getUserMedia({ video: true })
-            .then(handleStreamReady)
-            .catch((error) => console.error("Error accessing webcam:", error))
-        }
-      >
+      <Webcam ref={webcamRef} audio={false} />
+      <button onClick={startStreaming} >
         Start Streaming
       </button>
-      <button
-        onClick={() => {
-          if (stream) {
-            stream.getTracks().forEach((track) => track.stop());
-            setStream(null);
-          }
-        }}
-      >
+      <button onClick={stopStreaming} >
         Stop Streaming
       </button>
+      { <p>RTMP server is not accessible. Please check your server configuration.</p>}
     </div>
   );
 };

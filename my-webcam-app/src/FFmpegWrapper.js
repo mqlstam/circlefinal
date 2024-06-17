@@ -1,88 +1,124 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+// import React, { useState, useEffect, useRef } from "react";
+// import { FFmpeg } from "@ffmpeg/ffmpeg";
+// import { fetchFile } from "@ffmpeg/util";
 
-const FFmpegWrapper = ({ stream, rtmpUrl, onStreamReady }) => {
-  const [loaded, setLoaded] = useState(false);
-  const ffmpegRef = useRef(new FFmpeg());
-  const messageRef = useRef(null);
-  const recorderRef = useRef(null);
+// const App = () => {
+//   const [stream, setStream] = useState(null);
+//   const [ffmpeg, setFFmpeg] = useState(null);
+//   const [isStreaming, setIsStreaming] = useState(false);
+//   const videoRef = useRef(null);
+//   const mediaRecorderRef = useRef(null);
 
-  const loadFFmpeg = async () => {
-    console.log('Loading FFmpeg...');
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-    const ffmpeg = ffmpegRef.current;
-    ffmpeg.on('log', ({ message }) => {
-      if (messageRef.current) {
-        messageRef.current.innerHTML = message;
-      }
-      console.log('FFmpeg log:', message);
-    });
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
-    setLoaded(true);
-    console.log('FFmpeg loaded.');
-  };
+//   const rtmpUrl = "rtmp://localhost/live"; // Your RTMP server URL
 
-  useEffect(() => {
-    loadFFmpeg();
-  }, []);
+//   useEffect(() => {
+//     const loadFFmpeg = async () => {
+//       console.log("Loading FFmpeg...");
+//       const ffmpegInstance = new FFmpeg({ log: true });
+//       try {
+//         await ffmpegInstance.load();
+//         setFFmpeg(ffmpegInstance);
+//         console.log("FFmpeg loaded.");
+//       } catch (error) {
+//         console.error("Error loading FFmpeg:", error);
+//       }
+//     };
 
-  useEffect(() => {
-    if (loaded && stream) {
-      const startStreaming = async () => {
-        console.log('Starting FFmpeg streaming...');
-        
-        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
-        
-        let ffmpegProcess;
-        const processVideoChunk = async (event) => {
-          if (event.data.size > 0) {
-            console.log('Data available from MediaRecorder:', event.data);
-            const videoBlob = new Blob([event.data], { type: 'video/webm' });
-            const arrayBuffer = await videoBlob.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            await ffmpegRef.current.writeFile('input.webm', uint8Array);
-            console.log('File written to FFmpeg FS.');
+//     loadFFmpeg();
+//   }, []);
 
-            ffmpeg.run(
-                '-re', // Enable real-time mode
-                '-i', 'input.h264', // Input from FFmpeg.wasm
-                '-c:v', 'copy', // Copy video stream without re-encoding
-                '-f', 'flv', // Output format
-                '-flvflags', 'no_duration_filesize', // Required for streaming
-                rtmpUrl // Output to RTMP server
-              )
-                .then(() => {
-                  console.log('FFmpeg stream completed');
-                })
-                .catch(error => {
-                  console.error('Error during FFmpeg streaming:', error);
-                });
-              onStreamReady(rtmpUrl);
-            }
-          }
-        };
+//   const startStreaming = async () => {
+//     try {
+//       console.log("Requesting access to webcam...");
+//       const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+//       console.log("Webcam access granted.");
+//       setStream(newStream);
+//       videoRef.current.srcObject = newStream;
 
-        mediaRecorder.ondataavailable = processVideoChunk;
+//       if (ffmpeg && newStream) {
+//         console.log("Setting up MediaRecorder...");
+//         const mediaRecorder = new MediaRecorder(newStream, { mimeType: "video/webm; codecs=vp9" });
+//         mediaRecorderRef.current = mediaRecorder;
 
-        mediaRecorder.start(1000); // Capture in chunks of 1 second
-        recorderRef.current = mediaRecorder;
-        console.log('MediaRecorder started.');
-      };
+//         mediaRecorder.ondataavailable = async (event) => {
+//           if (event.data.size > 0) {
+//             console.log("Data available from MediaRecorder:", event.data);
+//             const videoBlob = new Blob([event.data], { type: "video/webm" });
+//             const videoFile = new File([videoBlob], "input.webm", { type: "video/webm" });
+//             await ffmpeg.writeFile("input.webm", await fetchFile(videoFile));
+//             console.log("File written to FFmpeg FS.");
 
-      startStreaming();
-    } else if (recorderRef.current) {
-      recorderRef.current.stop();
-      console.log('MediaRecorder stopped.');
-      recorderRef.current = null;
-    }
-  }, [loaded, stream, rtmpUrl]);
+//             try {
+//               console.log("Starting FFmpeg streaming...");
+//               await ffmpeg.exec([
+//                 "-re",
+//                 "-i", "input.webm",
+//                 "-c:v", "copy",
+//                 "-f", "flv",
+//                 rtmpUrl
+//               ]);
+//               console.log("FFmpeg stream completed.");
+//             } catch (error) {
+//               console.error("Error during FFmpeg streaming:", error);
+//             }
+//           }
+//         };
 
-  return <p ref={messageRef}></p>;
-};
+//         mediaRecorder.start(1000); // Capture in chunks of 1 second
+//         setIsStreaming(true);
+//         console.log("MediaRecorder started.");
+//       } else {
+//         console.error("FFmpeg or stream is not initialized.");
+//       }
+//     } catch (error) {
+//       console.error("Error accessing webcam:", error);
+//     }
+//   };
 
-export default FFmpegWrapper;
+//   const stopStreaming = () => {
+//     console.log("Stopping streaming...");
+//     if (stream) {
+//       stream.getTracks().forEach((track) => track.stop());
+//       setStream(null);
+//       console.log("Webcam stream stopped.");
+//     }
+
+//     if (mediaRecorderRef.current) {
+//       mediaRecorderRef.current.stop();
+//       mediaRecorderRef.current = null;
+//       console.log("MediaRecorder stopped.");
+//     }
+
+//     setIsStreaming(false);
+//     console.log("Streaming stopped.");
+//   };
+
+//   useEffect(() => {
+//     return () => {
+//       console.log("Cleaning up resources...");
+//       if (stream) {
+//         stream.getTracks().forEach((track) => track.stop());
+//         console.log("Webcam stream stopped.");
+//       }
+//       if (mediaRecorderRef.current) {
+//         mediaRecorderRef.current.stop();
+//         console.log("MediaRecorder stopped.");
+//       }
+//     };
+//   }, [stream]);
+
+//   return (
+//     <div>
+//       <h1>Webcam to RTMP Stream</h1>
+//       <video ref={videoRef} autoPlay muted />
+//       <button onClick={startStreaming} disabled={isStreaming}>
+//         Start Streaming
+//       </button>
+//       <button onClick={stopStreaming} disabled={!isStreaming}>
+//         Stop Streaming
+//       </button>
+//     </div>
+//   );
+// };
+
+// export default App;
